@@ -58,6 +58,15 @@ export default function Home() {
   const [active, setActive] = useState("Overview");
   const [orders, setOrders] = useState(initialOrders);
   const [selected, setSelected] = useState<Order | null>(null);
+  const [packed, setPacked] = useState<Record<string, boolean[]>>({});
+
+  function togglePackItem(orderId: string, index: number, total: number) {
+    setPacked((current) => {
+      const next = [...(current[orderId] ?? Array(total).fill(false))];
+      next[index] = !next[index];
+      return { ...current, [orderId]: next };
+    });
+  }
 
   const metrics = useMemo(() => ({
     open: orders.filter((o) => o.status !== "Dispatched").length,
@@ -130,7 +139,7 @@ export default function Home() {
 
         {active === "Returns" && <section className="panel full"><div className="panel-head"><div><span className="eyebrow">REVERSE LOGISTICS</span><h3>Returns</h3></div><button className="primary small">+ Register return</button></div><div className="table"><div className="tr th"><span>Return</span><span>Order</span><span>Customer</span><span>Reason</span><span>Condition</span><span>Status</span></div>{returns.map(r => <div className="tr" key={r.id}><span className="mono">{r.id}</span><span className="mono">{r.order}</span><strong>{r.customer}</strong><span>{r.reason}</span><span>{r.condition}</span><StatusPill status={r.status}/></div>)}</div></section>}
 
-        {selected && <div className="drawer-backdrop" onClick={() => setSelected(null)}><aside className="drawer" onClick={(e) => e.stopPropagation()}><button className="close" onClick={() => setSelected(null)}>×</button><span className="eyebrow">ORDER DETAIL</span><h2>{selected.id}</h2><StatusPill status={selected.status}/><div className="detail-block"><span>Customer</span><strong>{selected.customer}</strong></div><div className="detail-block"><span>Channel</span><strong>{selected.channel}</strong></div><div className="detail-block"><span>Items</span><strong>{selected.items} items · {selected.value}</strong></div><div className="detail-block"><span>Received</span><strong>{selected.age} ago</strong></div>{selected.status !== "Dispatched" && <button className="primary full-button" onClick={() => advanceOrder(selected)}>{selected.status === "New" ? "Start picking" : selected.status === "Picking" ? "Mark packed" : selected.status === "Packed" ? "Dispatch order" : "Resolve & resume"}</button>}</aside></div>}
+        {selected && <div className="drawer-backdrop" onClick={() => setSelected(null)}><aside className="drawer" onClick={(e) => e.stopPropagation()}><button className="close" onClick={() => setSelected(null)}>×</button><span className="eyebrow">ORDER DETAIL</span><h2>{selected.id}</h2><StatusPill status={selected.status}/><div className="detail-block"><span>Customer</span><strong>{selected.customer}</strong></div><div className="detail-block"><span>Channel</span><strong>{selected.channel}</strong></div><div className="detail-block"><span>Items</span><strong>{selected.items} items · {selected.value}</strong></div><div className="detail-block"><span>Received</span><strong>{selected.age} ago</strong></div>{selected.status !== "Dispatched" && <><div className="pack-section"><span className="eyebrow">PICK & PACK CHECKLIST</span>{Array.from({ length: selected.items }, (_, i) => <label className="check-row" key={i}><input type="checkbox" checked={packed[selected.id]?.[i] ?? false} onChange={() => togglePackItem(selected.id, i, selected.items)} /><span>Item {i + 1} verified and packed</span></label>)}</div><button className="primary full-button" disabled={selected.status === "Picking" && !(packed[selected.id]?.every(Boolean))} onClick={() => advanceOrder(selected)}>{selected.status === "New" ? "Start picking" : selected.status === "Picking" ? "Mark packed" : selected.status === "Packed" ? "Dispatch order" : "Resolve & resume"}</button></>}</aside></div>}
       </section>
     </main>
   );
