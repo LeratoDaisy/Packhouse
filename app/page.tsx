@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase-browser";
 
 type Status = "New" | "Picking" | "Packed" | "Dispatched" | "Exception";
 
@@ -54,9 +55,49 @@ function StatusPill({ status }: { status: string }) {
   return <span className={`pill pill-${status.toLowerCase().replaceAll(" ", "-")}`}>{status}</span>;
 }
 
-export default async function Home() {
+export default function Home() {
   const [active, setActive] = useState("Overview");
   const [orders, setOrders] = useState(initialOrders);
+  useEffect(() => {
+  async function loadOrders() {
+    const supabase = createClient();
+
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Failed to load orders:", error);
+      return;
+    }
+
+    if (data) {
+      setOrders(
+        data.map((order) => ({
+          id: order.order_number,
+          customer: order.customer_name,
+          channel: "Online",
+          items: 1,
+          value: "—",
+          status:
+            order.status === "new"
+              ? "New"
+              : order.status === "picking"
+                ? "Picking"
+                : order.status === "packed"
+                  ? "Packed"
+                  : order.status === "dispatched"
+                    ? "Dispatched"
+                    : "Exception",
+          age: "Today",
+        }))
+      );
+    }
+  }
+
+  loadOrders();
+}, []);
   const [selected, setSelected] = useState<Order | null>(null);
   const [packed, setPacked] = useState<Record<string, boolean[]>>({});
   const [dispatches] = useState(initialDispatches);
