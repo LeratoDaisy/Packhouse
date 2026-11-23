@@ -1,25 +1,25 @@
 # Packhouse Design Direction
 
-## Product direction
+Packhouse should feel like an operations product: high information density without clutter, clear next actions, and strong visual distinction between work that needs attention and work that is complete.
 
-Packhouse should feel like an operations product rather than a consumer shopping app.
+## Core screens
 
-### Visual priorities
+- Dashboard / Overview
+- Orders
+- Order detail + Pick & Pack
+- Inventory
+- Dispatch
+- Returns
 
-- Clear order and fulfilment status
-- High information density without clutter
-- Strong primary actions
-- Mobile-friendly operational views
-- Consistent status treatments
-- Simple inventory tables/cards
-- Clear distinction between action required and completed work
+## Visual direction
 
-### Core screens
+- Dark green operational brand
+- Light neutral workspace
+- Compact cards and tables
+- Consistent status pills
+- Responsive layouts for desktop and mobile
+- Action buttons should clearly communicate the next operational step
 
-1. Dashboard / fulfilment overview
-2. Orders
-3. Order detail / pick & pack
-4. Inventory
-5. Returns
+## Design source
 
-The implementation should preserve this information architecture while the visual design is refined.
+The implementation is currently the source of truth for the MVP interface. A separate Stitch design link will be added when the project design is available.
