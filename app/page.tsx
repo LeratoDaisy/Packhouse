@@ -54,7 +54,7 @@ function StatusPill({ status }: { status: string }) {
   return <span className={`pill pill-${status.toLowerCase().replaceAll(" ", "-")}`}>{status}</span>;
 }
 
-export default function Home() {
+export default async function Home() {
   const [active, setActive] = useState("Overview");
   const [orders, setOrders] = useState(initialOrders);
   const [selected, setSelected] = useState<Order | null>(null);
