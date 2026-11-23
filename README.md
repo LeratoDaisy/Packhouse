@@ -24,6 +24,14 @@ Small online businesses can make sales without the infrastructure to fulfil them
 
 Packhouse charges growing sellers through a combination of fulfilment fees per order, storage fees and optional delivery/returns services.
 
+## Design
+
+The editable MVP design is available in Figma:
+
+**[Packhouse MVP Design — Figma](https://www.figma.com/design/BqjLW1ECakCMKcu3kTUX3Z)**
+
+The design covers the Overview, Orders, Pick & Pack, Inventory, Dispatch and Returns workflows implemented in the MVP.
+
 ## Repository
 
 - Business case: [BUSINESS.md](BUSINESS.md)
@@ -33,4 +41,4 @@ Packhouse charges growing sellers through a combination of fulfilment fees per o
 
 ## Status
 
-MVP frontend implementation started for the 23 November 2026 project checkpoint.
+MVP frontend implementation completed for the 23 November 2026 project checkpoint.
