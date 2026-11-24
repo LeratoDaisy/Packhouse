@@ -153,6 +153,8 @@ if (inventoryData) {
   const [inventoryRows, setInventoryRows] = useState<{ sku: string; name: string; available: number; allocated: number; reorder: number }[]>([]);
   const [returnRows, setReturnRows] = useState<any[]>([]);
   const [returnOpen, setReturnOpen] = useState(false);
+  const [newOrderOpen, setNewOrderOpen] = useState(false);
+  const [newOrderForm, setNewOrderForm] = useState({ customer: "", email: "" });
   const [returnForm, setReturnForm] = useState({ order: "", customer: "", reason: "Wrong size" });
 
   function togglePackItem(orderId: string, index: number, total: number) {
@@ -292,6 +294,47 @@ if (inventoryData) {
     );
   }
 
+  async function createOrder() {
+    const customer = newOrderForm.customer.trim();
+    const email = newOrderForm.email.trim();
+
+    if (!customer) return;
+
+    const supabase = createClient();
+    const orderNumber = `PK-${Date.now().toString().slice(-6)}`;
+
+    const { data, error } = await supabase
+      .from("orders")
+      .insert({
+        order_number: orderNumber,
+        customer_name: customer,
+        customer_email: email || null,
+        status: "new",
+      })
+      .select("*")
+      .single();
+
+    if (error) {
+      console.error("Failed to create order:", error);
+      alert(error.message);
+      return;
+    }
+
+    const newOrder: Order = {
+      id: data.order_number,
+      customer: data.customer_name,
+      channel: "Online",
+      items: 1,
+      value: "—",
+      status: "New",
+      age: "Just now",
+    };
+
+    setOrders((current) => [newOrder, ...current]);
+    setNewOrderForm({ customer: "", email: "" });
+    setNewOrderOpen(false);
+  }
+
   async function registerReturn() {
     const supabase = createClient();
 
@@ -383,8 +426,8 @@ if (inventoryData) {
 
       <section className="content">
         <header className="topbar">
-          <div><span className="eyebrow">MONDAY, 23 NOVEMBER</span><h1>{active === "Overview" ? "Good morning, Lerato" : active}</h1></div>
-          <div className="top-actions"><button className="icon-button">⌕</button><button className="icon-button">♢</button><button className="primary">+ New order</button></div>
+          <div><span className="eyebrow">{new Date().toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long" }).toUpperCase()}</span><h1>{active === "Overview" ? "Good morning, Lerato" : active}</h1></div>
+          <div className="top-actions"><button className="icon-button">⌕</button><button className="icon-button">♢</button><button className="primary" onClick={() => setNewOrderOpen(true)}>+ New order</button></div>
         </header>
 
         {active === "Overview" && (
@@ -421,6 +464,7 @@ if (inventoryData) {
         {active === "Returns" && <section className="panel full"><div className="panel-head"><div><span className="eyebrow">REVERSE LOGISTICS</span><h3>Returns</h3></div><button className="primary small" onClick={() => setReturnOpen(true)}>+ Register return</button></div><div className="table"><div className="tr th"><span>Return</span><span>Order</span><span>Customer</span><span>Reason</span><span>Condition</span><span>Status</span></div>{returnRows.map(r => <button className="tr row-button" key={r.id} onClick={() => advanceReturn(r)}><span className="mono">{String(r.id).slice(0,8)}</span><span className="mono">{r.order}</span><strong>{r.customer}</strong><span>{r.reason}</span><span>{r.condition}</span><StatusPill status={r.status}/></button>)}</div></section>}
 
         {selected && <div className="drawer-backdrop" onClick={() => setSelected(null)}><aside className="drawer" onClick={(e) => e.stopPropagation()}><button className="close" onClick={() => setSelected(null)}>×</button><span className="eyebrow">ORDER DETAIL</span><h2>{selected.id}</h2><StatusPill status={selected.status}/><div className="detail-block"><span>Customer</span><strong>{selected.customer}</strong></div><div className="detail-block"><span>Channel</span><strong>{selected.channel}</strong></div><div className="detail-block"><span>Items</span><strong>{selected.items} items · {selected.value}</strong></div><div className="detail-block"><span>Received</span><strong>{selected.age} ago</strong></div>{selected.status !== "Dispatched" && <><div className="pack-section"><span className="eyebrow">PICK & PACK CHECKLIST</span>{Array.from({ length: selected.items }, (_, i) => <label className="check-row" key={i}><input type="checkbox" checked={packed[selected.id]?.[i] ?? false} onChange={() => togglePackItem(selected.id, i, selected.items)} /><span>Item {i + 1} verified and packed</span></label>)}</div><button className="primary full-button" disabled={selected.status === "Picking" && !(packed[selected.id]?.every(Boolean))} onClick={() => advanceOrder(selected)}>{selected.status === "New" ? "Start picking" : selected.status === "Picking" ? "Mark packed" : selected.status === "Packed" ? "Dispatch order" : "Resolve & resume"}</button></>}</aside></div>}
+        {newOrderOpen && <div className="modal-backdrop" onClick={() => setNewOrderOpen(false)}><div className="modal" onClick={(e) => e.stopPropagation()}><button className="close" onClick={() => setNewOrderOpen(false)}>×</button><span className="eyebrow">ORDER INTAKE</span><h2>Create a new order</h2><p className="modal-copy">Add a real order to the Packhouse fulfilment queue.</p><label className="field"><span>Customer</span><input value={newOrderForm.customer} onChange={(e) => setNewOrderForm({...newOrderForm, customer:e.target.value})} placeholder="Customer name" /></label><label className="field"><span>Email</span><input type="email" value={newOrderForm.email} onChange={(e) => setNewOrderForm({...newOrderForm, email:e.target.value})} placeholder="customer@example.com" /></label><div className="modal-actions"><button className="filter" onClick={() => setNewOrderOpen(false)}>Cancel</button><button className="primary" disabled={!newOrderForm.customer.trim()} onClick={createOrder}>Create order</button></div></div></div>}
         {returnOpen && <div className="modal-backdrop" onClick={() => setReturnOpen(false)}><div className="modal" onClick={(e) => e.stopPropagation()}><button className="close" onClick={() => setReturnOpen(false)}>×</button><span className="eyebrow">REVERSE LOGISTICS</span><h2>Register a return</h2><p className="modal-copy">Capture the parcel so Packhouse can inspect, resolve and restock it.</p><label className="field"><span>Order ID</span><input value={returnForm.order} onChange={(e) => setReturnForm({...returnForm, order:e.target.value})} placeholder="e.g. PK-1042" /></label><label className="field"><span>Customer</span><input value={returnForm.customer} onChange={(e) => setReturnForm({...returnForm, customer:e.target.value})} placeholder="Customer name" /></label><label className="field"><span>Reason</span><select value={returnForm.reason} onChange={(e) => setReturnForm({...returnForm, reason:e.target.value})}><option>Wrong size</option><option>Damaged item</option><option>Changed mind</option><option>Incorrect item</option></select></label><div className="modal-actions"><button className="filter" onClick={() => setReturnOpen(false)}>Cancel</button><button className="primary" disabled={!returnForm.order || !returnForm.customer} onClick={registerReturn}>Register return</button></div></div></div>}
       </section>
     </main>
