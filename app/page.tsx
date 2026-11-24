@@ -147,6 +147,18 @@ if (inventoryData) {
   loadOrders();
 }, []);
 
+  useEffect(() => {
+    if (active !== "Settings") return;
+    async function loadTeam() {
+      const response = await fetch("/api/employees");
+      if (response.ok) {
+        const data = await response.json();
+        setTeam(data.employees ?? []);
+      }
+    }
+    loadTeam();
+  }, [active]);
+
   const [selected, setSelected] = useState<Order | null>(null);
   const [packed, setPacked] = useState<Record<string, boolean[]>>({});
   const [dispatches, setDispatches] = useState<any[]>([]);
@@ -156,6 +168,11 @@ if (inventoryData) {
   const [newOrderOpen, setNewOrderOpen] = useState(false);
   const [newOrderForm, setNewOrderForm] = useState({ customer: "", email: "" });
   const [returnForm, setReturnForm] = useState({ order: "", customer: "", reason: "Wrong size" });
+  const [team, setTeam] = useState<any[]>([]);
+  const [employeeOpen, setEmployeeOpen] = useState(false);
+  const [employeeForm, setEmployeeForm] = useState({ name: "", email: "", password: "" });
+  const [employeeError, setEmployeeError] = useState("");
+  const [employeeLoading, setEmployeeLoading] = useState(false);
 
   function togglePackItem(orderId: string, index: number, total: number) {
     setPacked((current) => {
@@ -378,6 +395,36 @@ if (inventoryData) {
     setReturnOpen(false);
   }
 
+  async function createEmployee() {
+    setEmployeeError("");
+    setEmployeeLoading(true);
+
+    const response = await fetch("/api/employees", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(employeeForm),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setEmployeeError(data.error ?? "Could not create employee account.");
+      setEmployeeLoading(false);
+      return;
+    }
+
+    setTeam((current) => [data.employee, ...current]);
+    setEmployeeForm({ name: "", email: "", password: "" });
+    setEmployeeOpen(false);
+    setEmployeeLoading(false);
+  }
+
+  async function logout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  }
+
   async function advanceReturn(returnRow: any) {
     const next: Record<string, string> = {
       registered: "inspecting",
@@ -419,8 +466,8 @@ if (inventoryData) {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <button className="nav-item"><span>⚙</span>Settings</button>
-          <div className="user-card"><span className="avatar dark">LT</span><div><strong>Lerato</strong><small>Admin</small></div><span>•••</span></div>
+          <button className={active === "Settings" ? "nav-item active" : "nav-item"} onClick={() => { setActive("Settings"); setSelected(null); }}><span>⚙</span>Settings</button>
+          <button className="user-card" onClick={logout}><span className="avatar dark">LT</span><div><strong>Lerato</strong><small>Admin · Log out</small></div><span>↪</span></button>
         </div>
       </aside>
 
@@ -463,8 +510,41 @@ if (inventoryData) {
 
         {active === "Returns" && <section className="panel full"><div className="panel-head"><div><span className="eyebrow">REVERSE LOGISTICS</span><h3>Returns</h3></div><button className="primary small" onClick={() => setReturnOpen(true)}>+ Register return</button></div><div className="table"><div className="tr th"><span>Return</span><span>Order</span><span>Customer</span><span>Reason</span><span>Condition</span><span>Status</span></div>{returnRows.map(r => <button className="tr row-button" key={r.id} onClick={() => advanceReturn(r)}><span className="mono">{String(r.id).slice(0,8)}</span><span className="mono">{r.order}</span><strong>{r.customer}</strong><span>{r.reason}</span><span>{r.condition}</span><StatusPill status={r.status}/></button>)}</div></section>}
 
+        {active === "Settings" && <section className="panel full">
+          <div className="panel-head">
+            <div><span className="eyebrow">WORKSPACE SETTINGS</span><h3>Team & access</h3></div>
+            <button className="primary small" onClick={() => { setEmployeeError(""); setEmployeeOpen(true); }}>+ Add employee</button>
+          </div>
+          <p className="modal-copy">Create individual staff accounts so every Packhouse employee can sign in with their own credentials.</p>
+          <div className="inventory-grid">
+            {team.map((member) => (
+              <div className="inventory-card" key={member.id}>
+                <span className="sku">{member.role === "admin" ? "ADMIN" : "STAFF"}</span>
+                <h4>{member.full_name || "Packhouse employee"}</h4>
+                <div className="split"><span>{member.email}</span><span><b>{member.role}</b></span></div>
+              </div>
+            ))}
+          </div>
+          <div className="panel" style={{marginTop: 16}}>
+            <div className="panel-head"><div><span className="eyebrow">ACCOUNT</span><h3>Lerato</h3></div><button className="filter" onClick={logout}>Log out</button></div>
+            <p className="modal-copy">You are signed in as the Packhouse administrator. Log out here when handing the workspace to another employee.</p>
+          </div>
+        </section>}
+
         {selected && <div className="drawer-backdrop" onClick={() => setSelected(null)}><aside className="drawer" onClick={(e) => e.stopPropagation()}><button className="close" onClick={() => setSelected(null)}>×</button><span className="eyebrow">ORDER DETAIL</span><h2>{selected.id}</h2><StatusPill status={selected.status}/><div className="detail-block"><span>Customer</span><strong>{selected.customer}</strong></div><div className="detail-block"><span>Channel</span><strong>{selected.channel}</strong></div><div className="detail-block"><span>Items</span><strong>{selected.items} items · {selected.value}</strong></div><div className="detail-block"><span>Received</span><strong>{selected.age} ago</strong></div>{selected.status !== "Dispatched" && <><div className="pack-section"><span className="eyebrow">PICK & PACK CHECKLIST</span>{Array.from({ length: selected.items }, (_, i) => <label className="check-row" key={i}><input type="checkbox" checked={packed[selected.id]?.[i] ?? false} onChange={() => togglePackItem(selected.id, i, selected.items)} /><span>Item {i + 1} verified and packed</span></label>)}</div><button className="primary full-button" disabled={selected.status === "Picking" && !(packed[selected.id]?.every(Boolean))} onClick={() => advanceOrder(selected)}>{selected.status === "New" ? "Start picking" : selected.status === "Picking" ? "Mark packed" : selected.status === "Packed" ? "Dispatch order" : "Resolve & resume"}</button></>}</aside></div>}
         {newOrderOpen && <div className="modal-backdrop" onClick={() => setNewOrderOpen(false)}><div className="modal" onClick={(e) => e.stopPropagation()}><button className="close" onClick={() => setNewOrderOpen(false)}>×</button><span className="eyebrow">ORDER INTAKE</span><h2>Create a new order</h2><p className="modal-copy">Add a real order to the Packhouse fulfilment queue.</p><label className="field"><span>Customer</span><input value={newOrderForm.customer} onChange={(e) => setNewOrderForm({...newOrderForm, customer:e.target.value})} placeholder="Customer name" /></label><label className="field"><span>Email</span><input type="email" value={newOrderForm.email} onChange={(e) => setNewOrderForm({...newOrderForm, email:e.target.value})} placeholder="customer@example.com" /></label><div className="modal-actions"><button className="filter" onClick={() => setNewOrderOpen(false)}>Cancel</button><button className="primary" disabled={!newOrderForm.customer.trim()} onClick={createOrder}>Create order</button></div></div></div>}
+        {employeeOpen && <div className="modal-backdrop" onClick={() => setEmployeeOpen(false)}><div className="modal" onClick={(e) => e.stopPropagation()}>
+          <button className="close" onClick={() => setEmployeeOpen(false)}>×</button>
+          <span className="eyebrow">TEAM ACCESS</span>
+          <h2>Add an employee</h2>
+          <p className="modal-copy">Create a separate staff login for a Packhouse employee.</p>
+          <label className="field"><span>Full name</span><input value={employeeForm.name} onChange={(e) => setEmployeeForm({...employeeForm, name:e.target.value})} placeholder="Employee name" /></label>
+          <label className="field"><span>Email</span><input type="email" value={employeeForm.email} onChange={(e) => setEmployeeForm({...employeeForm, email:e.target.value})} placeholder="employee@company.com" /></label>
+          <label className="field"><span>Temporary password</span><input type="password" value={employeeForm.password} onChange={(e) => setEmployeeForm({...employeeForm, password:e.target.value})} placeholder="At least 8 characters" /></label>
+          {employeeError && <p className="login-error">{employeeError}</p>}
+          <div className="modal-actions"><button className="filter" onClick={() => setEmployeeOpen(false)}>Cancel</button><button className="primary" disabled={!employeeForm.name.trim() || !employeeForm.email.trim() || employeeForm.password.length < 8 || employeeLoading} onClick={createEmployee}>{employeeLoading ? "Creating..." : "Create employee"}</button></div>
+        </div></div>}
+
         {returnOpen && <div className="modal-backdrop" onClick={() => setReturnOpen(false)}><div className="modal" onClick={(e) => e.stopPropagation()}><button className="close" onClick={() => setReturnOpen(false)}>×</button><span className="eyebrow">REVERSE LOGISTICS</span><h2>Register a return</h2><p className="modal-copy">Capture the parcel so Packhouse can inspect, resolve and restock it.</p><label className="field"><span>Order ID</span><input value={returnForm.order} onChange={(e) => setReturnForm({...returnForm, order:e.target.value})} placeholder="e.g. PK-1042" /></label><label className="field"><span>Customer</span><input value={returnForm.customer} onChange={(e) => setReturnForm({...returnForm, customer:e.target.value})} placeholder="Customer name" /></label><label className="field"><span>Reason</span><select value={returnForm.reason} onChange={(e) => setReturnForm({...returnForm, reason:e.target.value})}><option>Wrong size</option><option>Damaged item</option><option>Changed mind</option><option>Incorrect item</option></select></label><div className="modal-actions"><button className="filter" onClick={() => setReturnOpen(false)}>Cancel</button><button className="primary" disabled={!returnForm.order || !returnForm.customer} onClick={registerReturn}>Register return</button></div></div></div>}
       </section>
     </main>
