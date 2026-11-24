@@ -467,7 +467,7 @@ if (inventoryData) {
         </nav>
         <div className="sidebar-bottom">
           <button className={active === "Settings" ? "nav-item active" : "nav-item"} onClick={() => { setActive("Settings"); setSelected(null); }}><span>⚙</span>Settings</button>
-          <button className="user-card" onClick={logout}><span className="avatar dark">LT</span><div><strong>Lerato</strong><small>Admin · Log out</small></div><span>↪</span></button>
+          <button className="user-card" onClick={logout}><span className="avatar dark">LT</span><div><strong>Lerato</strong><small>Administrator</small></div><span className="logout-icon" aria-label="Log out">↪</span></button>
         </div>
       </aside>
 
