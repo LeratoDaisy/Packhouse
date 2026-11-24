@@ -87,6 +87,37 @@ export default function Home() {
         }))
       );
     }
+    const { data: dispatchData, error: dispatchError } = await supabase
+      .from("dispatches")
+      .select("*, orders(order_number)")
+      .order("created_at", { ascending: false });
+
+    if (dispatchError) {
+      console.error("Failed to load dispatches:", dispatchError);
+    } else {
+      setDispatches(
+        (dispatchData ?? []).map((d: any) => ({
+          id: d.id,
+          order: d.orders?.order_number ?? "—",
+          carrier: d.carrier,
+          destination: d.destination,
+          window: d.pickup_window ?? "—",
+          status: d.dispatch_date ? "Collected" : "Ready",
+        }))
+      );
+    }
+
+    const { data: returnData, error: returnError } = await supabase
+      .from("returns")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (returnError) {
+      console.error("Failed to load returns:", returnError);
+    } else {
+      setReturnRows(returnData ?? []);
+    }
+
     const { data: inventoryData, error: inventoryError } = await supabase
   .from("inventory")
   .select("*")
@@ -174,6 +205,163 @@ if (inventoryData) {
     current?.id === order.id ? { ...current, status } : current
   );
 }
+
+  async function createShipment() {
+    const supabase = createClient();
+
+    const { data: packedOrders } = await supabase
+      .from("orders")
+      .select("id, order_number, customer_name")
+      .eq("status", "packed")
+      .order("created_at", { ascending: true });
+
+    const { data: existingDispatches } = await supabase
+      .from("dispatches")
+      .select("order_id");
+
+    const dispatchedOrderIds = new Set((existingDispatches ?? []).map((d: any) => d.order_id));
+    const order = (packedOrders ?? []).find((o: any) => !dispatchedOrderIds.has(o.id));
+
+    if (!order) {
+      alert("No packed order is available for dispatch.");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("dispatches")
+      .insert({
+        order_id: order.id,
+        carrier: "Packhouse Courier",
+        carrier_reference: `PK-${Date.now()}`,
+        destination: order.customer_name,
+        pickup_window: "Today · 14:30–16:00",
+      })
+      .select("*, orders(order_number)")
+      .single();
+
+    if (error) {
+      console.error("Failed to create shipment:", error);
+      alert(error.message);
+      return;
+    }
+
+    setDispatches((current) => [
+      {
+        id: data.id,
+        order: data.orders?.order_number ?? order.order_number,
+        carrier: data.carrier,
+        destination: data.destination,
+        window: data.pickup_window ?? "—",
+        status: data.dispatch_date ? "Collected" : "Ready",
+      },
+      ...current,
+    ]);
+  }
+
+  async function collectShipment(shipment: any) {
+    const supabase = createClient();
+
+    const { error } = await supabase
+      .from("dispatches")
+      .update({ dispatch_date: new Date().toISOString() })
+      .eq("id", shipment.id);
+
+    if (error) {
+      console.error("Failed to collect shipment:", error);
+      alert(error.message);
+      return;
+    }
+
+    if (shipment.order) {
+      await supabase
+        .from("orders")
+        .update({ status: "dispatched" })
+        .eq("order_number", shipment.order);
+    }
+
+    setDispatches((current) =>
+      current.map((d) =>
+        d.id === shipment.id ? { ...d, status: "Collected" } : d
+      )
+    );
+
+    setOrders((current) =>
+      current.map((o) =>
+        o.id === shipment.order ? { ...o, status: "Dispatched" } : o
+      )
+    );
+  }
+
+  async function registerReturn() {
+    const supabase = createClient();
+
+    const { data: order, error: orderError } = await supabase
+      .from("orders")
+      .select("id, order_number, customer_name")
+      .eq("order_number", returnForm.order.trim())
+      .maybeSingle();
+
+    if (orderError) {
+      console.error("Failed to find order:", orderError);
+      alert(orderError.message);
+      return;
+    }
+
+    if (!order) {
+      alert("Order not found. Enter an existing Packhouse order ID.");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("returns")
+      .insert({
+        order_id: order.id,
+        customer_name: returnForm.customer.trim(),
+        reason: returnForm.reason,
+        condition: "Pending inspection",
+        status: "registered",
+      })
+      .select("*")
+      .single();
+
+    if (error) {
+      console.error("Failed to register return:", error);
+      alert(error.message);
+      return;
+    }
+
+    setReturnRows((current) => [data, ...current]);
+    setReturnForm({ order: "", customer: "", reason: "Wrong size" });
+    setReturnOpen(false);
+  }
+
+  async function advanceReturn(returnRow: any) {
+    const next: Record<string, string> = {
+      registered: "inspecting",
+      inspecting: "approved",
+      approved: "restocked",
+      rejected: "registered",
+      restocked: "restocked",
+    };
+
+    const status = next[returnRow.status] ?? "registered";
+    const supabase = createClient();
+
+    const { error } = await supabase
+      .from("returns")
+      .update({ status })
+      .eq("id", returnRow.id);
+
+    if (error) {
+      console.error("Failed to update return:", error);
+      alert(error.message);
+      return;
+    }
+
+    setReturnRows((current) =>
+      current.map((r) => (r.id === returnRow.id ? { ...r, status } : r))
+    );
+  }
 
   return (
     <main className="shell">
