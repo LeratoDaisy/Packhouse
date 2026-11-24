@@ -31,17 +31,7 @@ const inventory = [
   { sku: "SK-HOOD-02", name: "Heavyweight Hoodie", available: 31, allocated: 5, reorder: 10 },
 ];
 
-const returns = [
-  { id: "RT-021", order: "PK-1038", customer: "Lebo M.", reason: "Wrong size", condition: "Awaiting inspection", status: "Open" },
-  { id: "RT-020", order: "PK-1029", customer: "Sarah N.", reason: "Damaged item", condition: "Damaged", status: "Review" },
-  { id: "RT-019", order: "PK-1017", customer: "Mpho T.", reason: "Changed mind", condition: "Good", status: "Restock" },
-];
 
-const initialDispatches = [
-  { id: "DS-884", order: "PK-1046", carrier: "Packhouse Courier", destination: "Johannesburg", window: "14:30", reference: "PH-884-14", date: "23 Nov 2026", status: "Ready" },
-  { id: "DS-883", order: "PK-1045", carrier: "Pargo", destination: "Pretoria", window: "15:00", reference: "PARGO-883", date: "23 Nov 2026", status: "Collected" },
-  { id: "DS-882", order: "PK-1043", carrier: "The Courier Guy", destination: "Sandton", window: "15:30", reference: "TCG-882", date: "23 Nov 2026", status: "Exception" },
-];
 
 const nav = [
   { key: "Overview", icon: "⌂" },
@@ -57,7 +47,7 @@ function StatusPill({ status }: { status: string }) {
 
 export default function Home() {
   const [active, setActive] = useState("Overview");
-  const [orders, setOrders] = useState(initialOrders);
+  const [orders, setOrders] = useState<Order[]>([]);
   useEffect(() => {
   async function loadOrders() {
     const supabase = createClient();
@@ -128,9 +118,9 @@ if (inventoryData) {
 
   const [selected, setSelected] = useState<Order | null>(null);
   const [packed, setPacked] = useState<Record<string, boolean[]>>({});
-  const [dispatches] = useState(initialDispatches);
+  const [dispatches, setDispatches] = useState<any[]>([]);
   const [inventoryRows, setInventoryRows] = useState<{ sku: string; name: string; available: number; allocated: number; reorder: number }[]>([]);
-  const [returnRows, setReturnRows] = useState(returns);
+  const [returnRows, setReturnRows] = useState<any[]>([]);
   const [returnOpen, setReturnOpen] = useState(false);
   const [returnForm, setReturnForm] = useState({ order: "", customer: "", reason: "Wrong size" });
 
@@ -228,7 +218,7 @@ if (inventoryData) {
               </div>
               <div className="panel">
                 <div className="panel-head"><div><span className="eyebrow">INVENTORY HEALTH</span><h3>Stock watch</h3></div><button className="text-button" onClick={() => setActive("Inventory")}>Inventory →</button></div>
-                {inventory.slice(0, 3).map((item) => <div className="stock-row" key={item.sku}><div><strong>{item.name}</strong><small>{item.sku}</small></div><div className="stock-count"><strong>{item.available}</strong><span>available</span></div><div className={item.available < item.reorder ? "stock-bar low" : "stock-bar"}><i style={{width: `${Math.min(item.available, 100)}%`}} /></div></div>)}
+                {inventoryRows.slice(0, 3).map((item) => <div className="stock-row" key={item.sku}><div><strong>{item.name}</strong><small>{item.sku}</small></div><div className="stock-count"><strong>{item.available}</strong><span>available</span></div><div className={item.available < item.reorder ? "stock-bar low" : "stock-bar"}><i style={{width: `${Math.min(item.available, 100)}%`}} /></div></div>)}
               </div>
             </section>
           </>
@@ -238,12 +228,12 @@ if (inventoryData) {
 
         {active === "Inventory" && <section className="panel full"><div className="panel-head"><div><span className="eyebrow">STOCK CONTROL</span><h3>Inventory</h3></div><button className="primary small">+ Receive stock</button></div><div className="inventory-grid">{inventoryRows.map((item) => <div className="inventory-card" key={item.sku}><span className="sku">{item.sku}</span><h4>{item.name}</h4><div className="big-stock">{item.available}<small>available</small></div><div className="split"><span>Allocated <b>{item.allocated}</b></span><span>Reorder at <b>{item.reorder}</b></span></div>{item.available < item.reorder && <div className="warning">Low stock · reorder recommended</div>}</div>)}</div></section>}
 
-        {active === "Dispatch" && <section className="panel full"><div className="panel-head"><div><span className="eyebrow">OUTBOUND OPERATIONS</span><h3>Dispatch board</h3></div><button className="primary small">+ Create shipment</button></div><div className="dispatch-summary"><div><strong>{dispatches.filter(d => d.status === "Ready").length}</strong><span>ready for pickup</span></div><div><strong>14:30</strong><span>next collection</span></div><div><strong>{dispatches.length}</strong><span>shipments today</span></div></div><div className="table"><div className="tr dispatch-tr th"><span>Shipment</span><span>Order</span><span>Carrier</span><span>Destination</span><span>Window</span><span>Status</span></div>{dispatches.map(d => <div className="tr dispatch-tr" key={d.id}><span className="mono"><b>{d.id}</b></span><span className="mono">{d.order}</span><span>{d.carrier}</span><span>{d.destination}</span><span>{d.window}</span><StatusPill status={d.status}/></div>)}</div></section>}
+        {active === "Dispatch" && <section className="panel full"><div className="panel-head"><div><span className="eyebrow">OUTBOUND OPERATIONS</span><h3>Dispatch board</h3></div><button className="primary small" onClick={createShipment}>+ Create shipment</button></div><div className="dispatch-summary"><div><strong>{dispatches.filter(d => d.status === "Ready").length}</strong><span>ready for pickup</span></div><div><strong>{dispatches.filter(d => d.status === "Collected").length}</strong><span>collected</span></div><div><strong>{dispatches.length}</strong><span>shipments</span></div></div><div className="table"><div className="tr dispatch-tr th"><span>Shipment</span><span>Order</span><span>Carrier</span><span>Destination</span><span>Window</span><span>Status</span></div>{dispatches.map(d => <button className="tr dispatch-tr row-button" key={d.id} onClick={() => d.status === "Ready" && collectShipment(d)}><span className="mono"><b>{String(d.id).slice(0,8)}</b></span><span className="mono">{d.order}</span><span>{d.carrier}</span><span>{d.destination}</span><span>{d.window}</span><StatusPill status={d.status}/></button>)}</div></section>}
 
-        {active === "Returns" && <section className="panel full"><div className="panel-head"><div><span className="eyebrow">REVERSE LOGISTICS</span><h3>Returns</h3></div><button className="primary small" onClick={() => setReturnOpen(true)}>+ Register return</button></div><div className="table"><div className="tr th"><span>Return</span><span>Order</span><span>Customer</span><span>Reason</span><span>Condition</span><span>Status</span></div>{returnRows.map(r => <div className="tr" key={r.id}><span className="mono">{r.id}</span><span className="mono">{r.order}</span><strong>{r.customer}</strong><span>{r.reason}</span><span>{r.condition}</span><StatusPill status={r.status}/></div>)}</div></section>}
+        {active === "Returns" && <section className="panel full"><div className="panel-head"><div><span className="eyebrow">REVERSE LOGISTICS</span><h3>Returns</h3></div><button className="primary small" onClick={() => setReturnOpen(true)}>+ Register return</button></div><div className="table"><div className="tr th"><span>Return</span><span>Order</span><span>Customer</span><span>Reason</span><span>Condition</span><span>Status</span></div>{returnRows.map(r => <button className="tr row-button" key={r.id} onClick={() => advanceReturn(r)}><span className="mono">{String(r.id).slice(0,8)}</span><span className="mono">{r.order}</span><strong>{r.customer}</strong><span>{r.reason}</span><span>{r.condition}</span><StatusPill status={r.status}/></button>)}</div></section>}
 
         {selected && <div className="drawer-backdrop" onClick={() => setSelected(null)}><aside className="drawer" onClick={(e) => e.stopPropagation()}><button className="close" onClick={() => setSelected(null)}>×</button><span className="eyebrow">ORDER DETAIL</span><h2>{selected.id}</h2><StatusPill status={selected.status}/><div className="detail-block"><span>Customer</span><strong>{selected.customer}</strong></div><div className="detail-block"><span>Channel</span><strong>{selected.channel}</strong></div><div className="detail-block"><span>Items</span><strong>{selected.items} items · {selected.value}</strong></div><div className="detail-block"><span>Received</span><strong>{selected.age} ago</strong></div>{selected.status !== "Dispatched" && <><div className="pack-section"><span className="eyebrow">PICK & PACK CHECKLIST</span>{Array.from({ length: selected.items }, (_, i) => <label className="check-row" key={i}><input type="checkbox" checked={packed[selected.id]?.[i] ?? false} onChange={() => togglePackItem(selected.id, i, selected.items)} /><span>Item {i + 1} verified and packed</span></label>)}</div><button className="primary full-button" disabled={selected.status === "Picking" && !(packed[selected.id]?.every(Boolean))} onClick={() => advanceOrder(selected)}>{selected.status === "New" ? "Start picking" : selected.status === "Picking" ? "Mark packed" : selected.status === "Packed" ? "Dispatch order" : "Resolve & resume"}</button></>}</aside></div>}
-        {returnOpen && <div className="modal-backdrop" onClick={() => setReturnOpen(false)}><div className="modal" onClick={(e) => e.stopPropagation()}><button className="close" onClick={() => setReturnOpen(false)}>×</button><span className="eyebrow">REVERSE LOGISTICS</span><h2>Register a return</h2><p className="modal-copy">Capture the parcel so Packhouse can inspect, resolve and restock it.</p><label className="field"><span>Order ID</span><input value={returnForm.order} onChange={(e) => setReturnForm({...returnForm, order:e.target.value})} placeholder="e.g. PK-1042" /></label><label className="field"><span>Customer</span><input value={returnForm.customer} onChange={(e) => setReturnForm({...returnForm, customer:e.target.value})} placeholder="Customer name" /></label><label className="field"><span>Reason</span><select value={returnForm.reason} onChange={(e) => setReturnForm({...returnForm, reason:e.target.value})}><option>Wrong size</option><option>Damaged item</option><option>Changed mind</option><option>Incorrect item</option></select></label><div className="modal-actions"><button className="filter" onClick={() => setReturnOpen(false)}>Cancel</button><button className="primary" disabled={!returnForm.order || !returnForm.customer} onClick={() => { setReturnRows([{id:"RT-" + String(22 + returnRows.length).padStart(3,"0"), order:returnForm.order, customer:returnForm.customer, reason:returnForm.reason, condition:"Awaiting inspection", status:"Open"}, ...returnRows]); setReturnForm({order:"",customer:"",reason:"Wrong size"}); setReturnOpen(false); }}>Register return</button></div></div></div>}
+        {returnOpen && <div className="modal-backdrop" onClick={() => setReturnOpen(false)}><div className="modal" onClick={(e) => e.stopPropagation()}><button className="close" onClick={() => setReturnOpen(false)}>×</button><span className="eyebrow">REVERSE LOGISTICS</span><h2>Register a return</h2><p className="modal-copy">Capture the parcel so Packhouse can inspect, resolve and restock it.</p><label className="field"><span>Order ID</span><input value={returnForm.order} onChange={(e) => setReturnForm({...returnForm, order:e.target.value})} placeholder="e.g. PK-1042" /></label><label className="field"><span>Customer</span><input value={returnForm.customer} onChange={(e) => setReturnForm({...returnForm, customer:e.target.value})} placeholder="Customer name" /></label><label className="field"><span>Reason</span><select value={returnForm.reason} onChange={(e) => setReturnForm({...returnForm, reason:e.target.value})}><option>Wrong size</option><option>Damaged item</option><option>Changed mind</option><option>Incorrect item</option></select></label><div className="modal-actions"><button className="filter" onClick={() => setReturnOpen(false)}>Cancel</button><button className="primary" disabled={!returnForm.order || !returnForm.customer} onClick={registerReturn}>Register return</button></div></div></div>}
       </section>
     </main>
   );
