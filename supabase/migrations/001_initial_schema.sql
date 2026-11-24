@@ -81,3 +81,132 @@ create index orders_status_idx on orders(status);
 create index order_items_order_id_idx on order_items(order_id);
 create index dispatches_order_id_idx on dispatches(order_id);
 create index returns_order_id_idx on returns(order_id);
+
+-- Row Level Security
+-- Packhouse MVP users are authenticated operators. Operational data is
+-- restricted to authenticated users; profiles are limited to the signed-in
+-- user's own profile.
+
+alter table profiles enable row level security;
+alter table orders enable row level security;
+alter table order_items enable row level security;
+alter table inventory enable row level security;
+alter table dispatches enable row level security;
+alter table returns enable row level security;
+
+drop policy if exists "Authenticated users can read own profile" on profiles;
+create policy "Authenticated users can read own profile"
+on profiles
+for select
+to authenticated
+using (auth.uid() = id);
+
+drop policy if exists "Authenticated users can read orders" on orders;
+create policy "Authenticated users can read orders"
+on orders
+for select
+to authenticated
+using (true);
+
+drop policy if exists "Authenticated users can insert orders" on orders;
+create policy "Authenticated users can insert orders"
+on orders
+for insert
+to authenticated
+with check (true);
+
+drop policy if exists "Authenticated users can update orders" on orders;
+create policy "Authenticated users can update orders"
+on orders
+for update
+to authenticated
+using (true)
+with check (true);
+
+drop policy if exists "Authenticated users can read order items" on order_items;
+create policy "Authenticated users can read order items"
+on order_items
+for select
+to authenticated
+using (true);
+
+drop policy if exists "Authenticated users can insert order items" on order_items;
+create policy "Authenticated users can insert order items"
+on order_items
+for insert
+to authenticated
+with check (true);
+
+drop policy if exists "Authenticated users can update order items" on order_items;
+create policy "Authenticated users can update order items"
+on order_items
+for update
+to authenticated
+using (true)
+with check (true);
+
+drop policy if exists "Authenticated users can read inventory" on inventory;
+create policy "Authenticated users can read inventory"
+on inventory
+for select
+to authenticated
+using (true);
+
+drop policy if exists "Authenticated users can insert inventory" on inventory;
+create policy "Authenticated users can insert inventory"
+on inventory
+for insert
+to authenticated
+with check (true);
+
+drop policy if exists "Authenticated users can update inventory" on inventory;
+create policy "Authenticated users can update inventory"
+on inventory
+for update
+to authenticated
+using (true)
+with check (true);
+
+drop policy if exists "Authenticated users can read dispatches" on dispatches;
+create policy "Authenticated users can read dispatches"
+on dispatches
+for select
+to authenticated
+using (true);
+
+drop policy if exists "Authenticated users can insert dispatches" on dispatches;
+create policy "Authenticated users can insert dispatches"
+on dispatches
+for insert
+to authenticated
+with check (true);
+
+drop policy if exists "Authenticated users can update dispatches" on dispatches;
+create policy "Authenticated users can update dispatches"
+on dispatches
+for update
+to authenticated
+using (true)
+with check (true);
+
+drop policy if exists "Authenticated users can read returns" on returns;
+create policy "Authenticated users can read returns"
+on returns
+for select
+to authenticated
+using (true);
+
+drop policy if exists "Authenticated users can insert returns" on returns;
+create policy "Authenticated users can insert returns"
+on returns
+for insert
+to authenticated
+with check (true);
+
+drop policy if exists "Authenticated users can update returns" on returns;
+create policy "Authenticated users can update returns"
+on returns
+for update
+to authenticated
+using (true)
+with check (true);
