@@ -72,6 +72,9 @@ export default function Home() {
       return;
     }
 
+    console.log("SUPABASE ORDERS:", data);
+    console.log("SUPABASE ERROR:", error);
+
     if (data) {
       setOrders(
         data.map((order) => ({
@@ -120,12 +123,41 @@ export default function Home() {
     exceptions: orders.filter((o) => o.status === "Exception").length,
   }), [orders]);
 
-  function advanceOrder(order: Order) {
-    const next: Record<Status, Status> = { New: "Picking", Picking: "Packed", Packed: "Dispatched", Dispatched: "Dispatched", Exception: "Picking" };
-    const status = next[order.status];
-    setOrders((current) => current.map((o) => o.id === order.id ? { ...o, status } : o));
-    setSelected((current) => current?.id === order.id ? { ...current, status } : current);
+  async function advanceOrder(order: Order) {
+  const next: Record<Status, Status> = {
+    New: "Picking",
+    Picking: "Packed",
+    Packed: "Dispatched",
+    Dispatched: "Dispatched",
+    Exception: "Picking",
+  };
+
+  const status = next[order.status];
+
+  const supabase = createClient();
+
+  const { error } = await supabase
+    .from("orders")
+    .update({
+      status: status.toLowerCase(),
+    })
+    .eq("order_number", order.id);
+
+  if (error) {
+    console.error("Failed to update order:", error);
+    return;
   }
+
+  setOrders((current) =>
+    current.map((o) =>
+      o.id === order.id ? { ...o, status } : o
+    )
+  );
+
+  setSelected((current) =>
+    current?.id === order.id ? { ...current, status } : current
+  );
+}
 
   return (
     <main className="shell">
