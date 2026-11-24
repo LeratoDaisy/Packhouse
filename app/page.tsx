@@ -97,13 +97,39 @@ export default function Home() {
         }))
       );
     }
+    const { data: inventoryData, error: inventoryError } = await supabase
+  .from("inventory")
+  .select("*")
+  .order("product_name");
+
+console.log("SUPABASE INVENTORY:", inventoryData);
+console.log("SUPABASE INVENTORY ERROR:", inventoryError);
+
+if (inventoryError) {
+  console.error("Failed to load inventory:", inventoryError);
+  return;
+}
+
+if (inventoryData) {
+  setInventoryRows(
+    inventoryData.map((item) => ({
+      sku: item.sku,
+      name: item.product_name,
+      available: item.stock_available,
+      allocated: item.stock_allocated,
+      reorder: item.reorder_threshold,
+    }))
+  );
+}
   }
 
   loadOrders();
 }, []);
+
   const [selected, setSelected] = useState<Order | null>(null);
   const [packed, setPacked] = useState<Record<string, boolean[]>>({});
   const [dispatches] = useState(initialDispatches);
+  const [inventoryRows, setInventoryRows] = useState<{ sku: string; name: string; available: number; allocated: number; reorder: number }[]>([]);
   const [returnRows, setReturnRows] = useState(returns);
   const [returnOpen, setReturnOpen] = useState(false);
   const [returnForm, setReturnForm] = useState({ order: "", customer: "", reason: "Wrong size" });
@@ -210,7 +236,7 @@ export default function Home() {
 
         {active === "Orders" && <section className="panel full"><div className="panel-head"><div><span className="eyebrow">FULFILMENT QUEUE</span><h3>All orders</h3></div><div className="filters"><button className="filter active">All</button><button className="filter">Needs action</button><button className="filter">Dispatched</button></div></div><OrderTable orders={orders} onSelect={setSelected} /></section>}
 
-        {active === "Inventory" && <section className="panel full"><div className="panel-head"><div><span className="eyebrow">STOCK CONTROL</span><h3>Inventory</h3></div><button className="primary small">+ Receive stock</button></div><div className="inventory-grid">{inventory.map((item) => <div className="inventory-card" key={item.sku}><span className="sku">{item.sku}</span><h4>{item.name}</h4><div className="big-stock">{item.available}<small>available</small></div><div className="split"><span>Allocated <b>{item.allocated}</b></span><span>Reorder at <b>{item.reorder}</b></span></div>{item.available < item.reorder && <div className="warning">Low stock · reorder recommended</div>}</div>)}</div></section>}
+        {active === "Inventory" && <section className="panel full"><div className="panel-head"><div><span className="eyebrow">STOCK CONTROL</span><h3>Inventory</h3></div><button className="primary small">+ Receive stock</button></div><div className="inventory-grid">{inventoryRows.map((item) => <div className="inventory-card" key={item.sku}><span className="sku">{item.sku}</span><h4>{item.name}</h4><div className="big-stock">{item.available}<small>available</small></div><div className="split"><span>Allocated <b>{item.allocated}</b></span><span>Reorder at <b>{item.reorder}</b></span></div>{item.available < item.reorder && <div className="warning">Low stock · reorder recommended</div>}</div>)}</div></section>}
 
         {active === "Dispatch" && <section className="panel full"><div className="panel-head"><div><span className="eyebrow">OUTBOUND OPERATIONS</span><h3>Dispatch board</h3></div><button className="primary small">+ Create shipment</button></div><div className="dispatch-summary"><div><strong>{dispatches.filter(d => d.status === "Ready").length}</strong><span>ready for pickup</span></div><div><strong>14:30</strong><span>next collection</span></div><div><strong>{dispatches.length}</strong><span>shipments today</span></div></div><div className="table"><div className="tr dispatch-tr th"><span>Shipment</span><span>Order</span><span>Carrier</span><span>Destination</span><span>Window</span><span>Status</span></div>{dispatches.map(d => <div className="tr dispatch-tr" key={d.id}><span className="mono"><b>{d.id}</b></span><span className="mono">{d.order}</span><span>{d.carrier}</span><span>{d.destination}</span><span>{d.window}</span><StatusPill status={d.status}/></div>)}</div></section>}
 
