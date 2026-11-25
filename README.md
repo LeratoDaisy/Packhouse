@@ -10,6 +10,12 @@ Packhouse helps small online sellers store, pack, dispatch, track and process re
 
 The production application includes authenticated access, a hosted Supabase database and the core fulfilment workflows.
 
+## Pitch & demo
+
+**Loom pitch + live product demo:** https://www.loom.com/share/8c7e9621d3bd4703904d6a8742f87300
+
+**Packhouse showcase presentation:** https://canva.link/cigzmr2lov1riik
+
 ## Problem
 
 Small online businesses can make sales without having the infrastructure or operational capacity to fulfil them reliably. Packhouse provides the operating layer between a seller receiving an order and the customer receiving it.
